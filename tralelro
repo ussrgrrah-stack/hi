@@ -1,0 +1,110 @@
+
+
+getgenv().G = true
+getgenv().DamageMult = 100
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Full Metal Kaiju Hunters",
+    LoadingTitle = "Loading...",
+    LoadingSubtitle = "",
+    Theme = "Default",
+})
+
+local Tab = Window:CreateTab("Combat", 4483362458)
+
+local Events = game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Server")
+local Combat = Events:WaitForChild("Combat")
+local RangedCombat = Events:WaitForChild("RangedCombat")
+
+
+spawn(function()
+    while getgenv().G do
+        local playerGui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
+        if playerGui then
+            local hud = playerGui:FindFirstChild("HUD")
+            if hud then
+                local energy = hud:FindFirstChild("Energy", true) or hud:FindFirstChild("Stats"):FindFirstChild("Energy")
+                if energy and energy:IsA("NumberValue") or energy:IsA("IntValue") then
+                    energy.Value = 999999
+                end
+            end
+        end
+        task.wait(0.5)
+    end
+end)
+
+
+local mt = getrawmetatable(game)
+local old = mt.__namecall
+setreadonly(mt, false)
+
+mt.__namecall = newcclosure(function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+
+    if getgenv().G and (self == Combat or self == RangedCombat) and method == "FireServer" then
+        if typeof(args[2]) == "table" then
+            local t = args[2]
+            t.Damage = (t.Damage or 100) * getgenv().DamageMult
+            t.damage = (t.damage or 100) * getgenv().DamageMult
+            t.Multiplier = (t.Multiplier or 1) * getgenv().DamageMult
+            t.Power = (t.Power or 1) * getgenv().DamageMult
+        end
+    end
+
+    return old(self, unpack(args))
+end)
+
+setreadonly(mt, true)
+
+Tab:CreateSection("Damage")
+
+Tab:CreateSlider({
+    Name = "Damage Multiplier (doesntwork)",
+    Range = {1, 500},
+    Increment = 10,
+    CurrentValue = 100,
+    Callback = function(v)
+        getgenv().DamageMult = v
+    end,
+})
+
+Tab:CreateToggle({
+    Name = "Spam Melee (Hold LMB)",
+    CurrentValue = false,
+    Callback = function(v)
+        getgenv().SpamMelee = v
+    end,
+})
+
+-- Melee Spam
+local UserInputService = game:GetService("UserInputService")
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 and getgenv().SpamMelee then
+        getgenv().MeleeSpam = true
+        while getgenv().MeleeSpam and getgenv().SpamMelee do
+            Combat:FireServer("Melee", {Damage = 999999})
+            task.wait(0.01)
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        getgenv().MeleeSpam = false
+    end
+end)
+
+Tab:CreateButton({
+    Name = "Kill All NPCs",
+    Callback = function()
+        for _, hum in ipairs(workspace:GetDescendants()) do
+            if hum:IsA("Humanoid") and not game.Players:GetPlayerFromCharacter(hum.Parent) then
+                hum.Health = 0
+            end
+        end
+    end,
+})
